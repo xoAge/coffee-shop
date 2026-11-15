@@ -1,0 +1,25 @@
+services:
+
+  kafka:
+    image: apache/kafka:4.1.0
+    ports:
+      - "9092:9092"
+
+  orders-db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: orders
+      POSTGRES_PASSWORD: ${ORDERS_DB_PASSWORD}
+      POSTGRES_DB: orders
+    ports:
+      - "15433:5432"
+    volumes:
+      - orders-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orders -d orders"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  orders-data:
