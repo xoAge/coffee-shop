@@ -3,6 +3,7 @@ package io.github.xoage.orders.service;
 import io.github.xoage.orders.config.KafkaTopicsConfig;
 import io.github.xoage.orders.events.OrderCreatedEvent;
 import io.github.xoage.orders.model.Order;
+import io.github.xoage.orders.model.OrderStatus;
 import io.github.xoage.orders.repository.OrderRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +33,17 @@ public class OrderService {
         log.info("Отправлено событие: заказ {} создан ({})", order.getId(), order.getDrink());
 
         return order;
+    }
+
+    @Transactional
+    public void changeStatus(Long orderId, OrderStatus status) {
+        orderRepository.findById(orderId).ifPresentOrElse(
+                order -> {
+                    order.setStatus(status);
+                    log.info("Заказ {}: статус {}", orderId, status);
+                },
+                () -> log.warn("Событие о статусе для несуществующего заказа {}, пропускаем", orderId)
+        );
     }
 
     @Transactional(readOnly = true)
