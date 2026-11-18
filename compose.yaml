@@ -49,6 +49,28 @@ services:
       timeout: 5s
       retries: 10
 
+  order-service:
+    build: ./order-service
+    environment:
+      ORDERS_DB_PASSWORD: ${ORDERS_DB_PASSWORD}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://orders-db:5432/orders
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9093
+    ports:
+      - "8081:8081"
+    depends_on:
+      orders-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  barista-service:
+    build: ./barista-service
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9093
+    depends_on:
+      kafka:
+        condition: service_healthy
+
 volumes:
   orders-data:
   kafka-data:
