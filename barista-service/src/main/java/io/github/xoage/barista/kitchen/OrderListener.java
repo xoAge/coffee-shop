@@ -5,9 +5,12 @@ import io.github.xoage.barista.events.OrderCreatedEvent;
 import io.github.xoage.barista.events.OrderStatusChangedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
+
+import java.time.Duration;
 
 @Component
 public class OrderListener {
@@ -15,9 +18,12 @@ public class OrderListener {
     private static final Logger log = LoggerFactory.getLogger(OrderListener.class);
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final Duration preparationTime;
 
-    public OrderListener(KafkaTemplate<String, Object> kafkaTemplate) {
+    public OrderListener(KafkaTemplate<String, Object> kafkaTemplate,
+                         @Value("${barista.preparation-time}") Duration preparationTime) {
         this.kafkaTemplate = kafkaTemplate;
+        this.preparationTime = preparationTime;
     }
 
     @KafkaListener(topics = "orders.created")
@@ -25,7 +31,7 @@ public class OrderListener {
         log.info("☕ Новый заказ {}: {} для {}", event.orderId(), event.drink(), event.customerName());
         sendStatus(event.orderId(), "PREPARING");
 
-        Thread.sleep(5000);   // «готовим» 5 секунд
+        Thread.sleep(preparationTime.toMillis());
 
         sendStatus(event.orderId(), "READY");
         log.info("✅ Заказ {} готов: {}", event.orderId(), event.drink());
