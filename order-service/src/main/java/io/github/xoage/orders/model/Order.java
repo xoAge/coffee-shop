@@ -43,7 +43,12 @@ public class Order {
     public OrderStatus getStatus() { return status; }
     public Instant getCreatedAt() { return createdAt; }
 
-    public void setStatus(OrderStatus status) {
-        this.status = status;
+    /// Меняет статус, если переход разрешён. Возвращает false, если событие устарело или повторное.
+    public boolean changeStatus(OrderStatus next) {
+        if (!status.canChangeTo(next)) {
+            return false;
+        }
+        this.status = next;
+        return true;
     }
 }
