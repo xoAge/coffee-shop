@@ -53,6 +53,23 @@ class BaristaIntegrationTest {
         }
     }
 
+    @Test
+    void failingOrder_goesToDeadLetterTopic() {
+        try (KafkaConsumer<String, String> consumer = testConsumer("orders.created.dlt")) {
+
+            kafkaTemplate.send("orders.created", "99", new OrderCreatedEvent(99L, "сломанный", "Тест"));
+
+            List<ConsumerRecord<String, String>> received = new ArrayList<>();
+            await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> {
+                consumer.poll(Duration.ofMillis(500)).forEach(received::add);
+                assertThat(received).anySatisfy(record -> {
+                    assertThat(record.key()).isEqualTo("99");
+                    assertThat(record.value()).contains("сломанный");
+                });
+            });
+        }
+    }
+
     private KafkaConsumer<String, String> testConsumer(String topic) {
         KafkaConsumer<String, String> consumer = new KafkaConsumer<>(Map.of(
                 ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers(),

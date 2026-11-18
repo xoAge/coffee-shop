@@ -29,6 +29,10 @@ public class OrderListener {
     @KafkaListener(topics = "orders.created")
     public void onOrderCreated(OrderCreatedEvent event) throws InterruptedException {
         log.info("☕ Новый заказ {}: {} для {}", event.orderId(), event.drink(), event.customerName());
+        // демонстрационная поломка: так можно вызвать ошибку обработки по желанию
+        if ("сломанный".equalsIgnoreCase(event.drink())) {
+            throw new IllegalStateException("Кофемашина сломалась на заказе " + event.orderId());
+        }
         sendStatus(event.orderId(), "PREPARING");
 
         Thread.sleep(preparationTime.toMillis());
