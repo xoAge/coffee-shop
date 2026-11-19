@@ -3,6 +3,7 @@ package io.github.xoage.orders;
 import io.github.xoage.orders.events.OrderStatusChangedEvent;
 import io.github.xoage.orders.model.Order;
 import io.github.xoage.orders.model.OrderStatus;
+import io.github.xoage.orders.outbox.OutboxRepository;
 import io.github.xoage.orders.service.OrderService;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -82,6 +83,24 @@ class OrderFlowIntegrationTest {
         // даём слушателю время обработать «опоздавшие» события и проверяем, что статус не откатился
         await().during(Duration.ofSeconds(2)).atMost(Duration.ofSeconds(5)).untilAsserted(() ->
                 assertThat(orderService.findById(order.getId()).getStatus()).isEqualTo(OrderStatus.READY));
+    }
+
+    @Autowired
+    private OutboxRepository outboxRepository;
+
+    @Test
+    void createOrder_storesEventInOutbox_andRelayMarksItSent() {
+        Order order = orderService.create("какао", "Тест");
+
+        await().atMost(Duration.ofSeconds(15)).untilAsserted(() ->
+                assertThat(outboxRepository.findAll())
+                        .filteredOn(e -> e.getAggregateId().equals(order.getId().toString()))
+                        .singleElement()
+                        .satisfies(e -> {
+                            assertThat(e.getTopic()).isEqualTo("orders.created");
+                            assertThat(e.getPayload()).contains("\"drink\":\"какао\"");
+                            assertThat(e.getSentAt()).isNotNull();
+                        }));
     }
 
     /// Свой читатель топика: уникальная группа, ключ и значение - простые строки.
