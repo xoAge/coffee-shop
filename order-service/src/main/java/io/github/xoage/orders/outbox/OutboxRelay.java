@@ -8,6 +8,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -45,6 +47,15 @@ public class OutboxRelay {
             }
             event.markSent();
             log.info("Событие {} отправлено в {}", event.getId(), event.getTopic());
+        }
+    }
+    /// Раз в час удаляет события, отправленные больше суток назад.
+    @Scheduled(cron = "0 0 * * * *")
+    @Transactional
+    public void cleanUp() {
+        int deleted = outboxRepository.deleteSentBefore(Instant.now().minus(Duration.ofDays(1)));
+        if (deleted > 0) {
+            log.info("Удалено отправленных событий из outbox: {}", deleted);
         }
     }
 }
