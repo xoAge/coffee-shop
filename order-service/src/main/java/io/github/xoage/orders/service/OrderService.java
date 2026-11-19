@@ -4,12 +4,15 @@ import io.github.xoage.orders.config.KafkaTopicsConfig;
 import io.github.xoage.orders.events.OrderCreatedEvent;
 import io.github.xoage.orders.model.Order;
 import io.github.xoage.orders.model.OrderStatus;
+import io.github.xoage.orders.outbox.OutboxEvent;
+import io.github.xoage.orders.outbox.OutboxRepository;
 import io.github.xoage.orders.repository.OrderRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.ObjectMapper;
 
 @Service
 public class OrderService {
@@ -17,11 +20,15 @@ public class OrderService {
     private static final Logger log = LoggerFactory.getLogger(OrderService.class);
 
     private final OrderRepository orderRepository;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final OutboxRepository outboxRepository;
+    private final ObjectMapper objectMapper;
 
-    public OrderService(OrderRepository orderRepository, KafkaTemplate<String, Object> kafkaTemplate) {
+    public OrderService(OrderRepository orderRepository,
+                        OutboxRepository outboxRepository,
+                        ObjectMapper objectMapper) {
         this.orderRepository = orderRepository;
-        this.kafkaTemplate = kafkaTemplate;
+        this.outboxRepository = outboxRepository;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional
@@ -29,8 +36,11 @@ public class OrderService {
         Order order = orderRepository.save(new Order(drink, customerName));
 
         OrderCreatedEvent event = new OrderCreatedEvent(order.getId(), order.getDrink(), order.getCustomerName());
-        kafkaTemplate.send(KafkaTopicsConfig.ORDERS_CREATED, order.getId().toString(), event);
-        log.info("Отправлено событие: заказ {} создан ({})", order.getId(), order.getDrink());
+        outboxRepository.save(new OutboxEvent(
+                order.getId().toString(),
+                KafkaTopicsConfig.ORDERS_CREATED,
+                objectMapper.writeValueAsString(event)));
+        log.info("Заказ {} создан, событие записано в outbox", order.getId());
 
         return order;
     }
