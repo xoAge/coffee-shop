@@ -4,5 +4,14 @@ package io.github.xoage.orders.model;
 public enum OrderStatus {
     NEW,
     PREPARING,
-    READY
+    READY;
+
+    /// Можно ли перейти из этого статуса в next.
+    public boolean canChangeTo(OrderStatus next) {
+        return switch (this) {
+            case NEW -> next == PREPARING || next == READY;
+            case PREPARING -> next == READY;
+            case READY -> false;
+        };
+    }
 }

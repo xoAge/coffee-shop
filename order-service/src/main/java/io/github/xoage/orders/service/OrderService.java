@@ -39,8 +39,12 @@ public class OrderService {
     public void changeStatus(Long orderId, OrderStatus status) {
         orderRepository.findById(orderId).ifPresentOrElse(
                 order -> {
-                    order.setStatus(status);
-                    log.info("Заказ {}: статус {}", orderId, status);
+                    if (order.changeStatus(status)) {
+                        log.info("Заказ {}: статус {}", orderId, status);
+                    } else {
+                        log.info("Заказ {}: переход {} -> {} не разрешён, событие пропущено",
+                                orderId, order.getStatus(), status);
+                    }
                 },
                 () -> log.warn("Событие о статусе для несуществующего заказа {}, пропускаем", orderId)
         );
