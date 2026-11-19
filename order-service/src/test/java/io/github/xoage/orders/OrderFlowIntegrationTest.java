@@ -67,6 +67,23 @@ class OrderFlowIntegrationTest {
                 assertThat(orderService.findById(order.getId()).getStatus()).isEqualTo(OrderStatus.READY));
     }
 
+    @Test
+    void lateOrDuplicateStatusEvents_doNotMoveOrderBack() {
+        Order order = orderService.create("американо", "Тест");
+        String key = order.getId().toString();
+
+        kafkaTemplate.send("orders.status-changed", key, new OrderStatusChangedEvent(order.getId(), "READY"));
+        kafkaTemplate.send("orders.status-changed", key, new OrderStatusChangedEvent(order.getId(), "PREPARING"));
+        kafkaTemplate.send("orders.status-changed", key, new OrderStatusChangedEvent(order.getId(), "READY"));
+
+        await().atMost(Duration.ofSeconds(15)).untilAsserted(() ->
+                assertThat(orderService.findById(order.getId()).getStatus()).isEqualTo(OrderStatus.READY));
+
+        // даём слушателю время обработать «опоздавшие» события и проверяем, что статус не откатился
+        await().during(Duration.ofSeconds(2)).atMost(Duration.ofSeconds(5)).untilAsserted(() ->
+                assertThat(orderService.findById(order.getId()).getStatus()).isEqualTo(OrderStatus.READY));
+    }
+
     /// Свой читатель топика: уникальная группа, ключ и значение - простые строки.
     private KafkaConsumer<String, String> testConsumer(String topic) {
         KafkaConsumer<String, String> consumer = new KafkaConsumer<>(Map.of(
